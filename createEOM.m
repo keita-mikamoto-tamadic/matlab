@@ -1,14 +1,14 @@
 syms t_symbol lamda tau
-syms theta(t_symbol) phi(t_symbol) fd
+syms theta(t_symbol) phi(t_symbol) fd v
 
-syms g Mp Jp l u_1 u_3 Mw Jw a u_2 u_4
+%syms g Mp Jp l u_1 u_3 Mw Jw a u_2 u_4 x
 
 
 % 一般化座標ベクトル定義
 q = [theta(t_symbol); phi(t_symbol)];
 dq = diff(q, t_symbol);
 ddq = diff(dq, t_symbol);
-torq = [-tau; tau];
+torq = [0; tau];
 
 % 外力をθ周りのトルクに換算
 % ex_torq = [2 * l * fd * cos(q(1)), 0];
@@ -16,6 +16,8 @@ ex_torq = [fd * cos(q(1)) * 2 * l, 0];
 
 % 入力uの定義
 u = [fd; tau];
+
+C = [20,0,10,0];
 
 % 振子とタイヤの摩擦トルクとタイヤの転がり抵抗
 tau_fp = u_3 * dq(2);
@@ -27,7 +29,6 @@ dissipation = [tau_fp, tau_fw];
 xw = a*(q(1)+q(2));
 
 % 全微分を用いた文字式の常微分
-% == diff(xw,t);
 dxw = diff(xw, q(1))*dq(1) + diff(xw, q(2))*dq(2);
 
 % 振子の直交座標表記
@@ -37,6 +38,7 @@ yp = l*cos(q(1));
 % 振子直交座標の微分
 dxp = diff(xp,q(1))*dq(1) + diff(xp,q(2))*dq(2);
 dyp = diff(yp, q(1))*dq(1) + diff(yp,q(2))*dq(2);
+
 % 振子のエネルギー
 % 並進エネルギー
 Kpt = 1/2 * Mp * ((dxp^2) + (dyp^2));
@@ -58,7 +60,6 @@ Kwt = 1/2 * Mw * dxw^2;
 Kwr = 1/2 * Jw * (dq(1) + dq(2))^2;
 
 % 位置エネルギー
-
 % 損失エネルギー
 Dw = 1/2 * u_2 *dq(2)^2;
 
@@ -121,8 +122,8 @@ end
 % 仮の状態ベクトルで置き換え
 x_temp = sym("x_temp", [n_state, 1]);
 for i = 1:statenum
-    eq(i) = subs(eq(i), x(2:2:end), x_temp(2:2:end));
-    eq(i) = subs(eq(i), x(1:2:end), x_temp(1:2:end));
+    eq(i) = subs(eq(i), x(2:2:end), x_temp(2:2:end))
+    eq(i) = subs(eq(i), x(1:2:end), x_temp(1:2:end))
 
 end
 
@@ -157,37 +158,40 @@ if iflinear == false
     return;
 end
 
+% 近似点を指定
+linear_point = [0;0;0;0];
+
 jacobi_A = jacobian(dx,x_temp);
 jacobi_B = jacobian(dx,u);
 
 % 近似
-jacobi_A = subs(jacobi_A, x_temp, zeros(4,1))
+jacobi_A = subs(jacobi_A, x_temp, linear_point)
+A_lqr = jacobi_A;
 
-jacobi_B = subs(jacobi_B, x_temp, zeros(4,1));
+jacobi_B = subs(jacobi_B, x_temp, linear_point);
 jacobi_B = subs(jacobi_B, tau, 0)
 jacobi_B_c = jacobi_B(:,2)
+B_lqr = jacobi_B_c;
 
 % ==============================
-% レギュレータ問題　極配置法
+% LQR
 % ==============================
-% 状態方程式をフィードバック制御するために、u = -Kx を用いdx = (A - BK)x + Buを定義する
-% 先にA - BKからゲインKを求める
+% 最適レギュレータ
+% 入出力評価関数を最小にする入力を求める。
 
-K_temp = sym('K_temp', [1,n_state]);
-AmBK = jacobi_A - jacobi_B_c * K_temp;
-eq_L = det(AmBK - diag([lamda lamda lamda lamda])) == 0;
+% 出力重みQ
+Q_lqr = diag([1,1,1,1]);
+% 入力重みR
+R_lqr = 40;
 
-eq_temp = sym('eq_temp', [n_state,1]);
-for i_state = 1:n_state
-    eq_temp(i_state) = subs(eq_L, lamda, lamda_param(i_state))
-end
+P = Ricatti_eq_lqr(A_lqr, B_lqr, Q_lqr, R_lqr);
 
-sol = solve(eq_temp,K_temp)
+% 状態方程式
+dx_eq = (A_lqr - B_lqr * (inv(R_lqr) * B_lqr.' * P)) * x_temp
 
-K_gain = [sol.K_temp1, sol.K_temp2, sol.K_temp3, sol.K_temp4]
-AmBK = subs(AmBK, K_temp, K_gain)
-
-dx = AmBK * x_temp + jacobi_B * u
+% 出力方程式
+y = C * dx;
 
 
-matlabFunction(dx, "File", "state_eq", "Vars", {x_temp, u}, "Outputs", {'dxout'});
+matlabFunction(dx_eq, "File", "state_eq", "Vars", {x_temp, u}, "Outputs", {'dxout'});
+%matlabFunction(dx, "File", "state_eq", "Vars", {x_temp, u}, "Outputs", {'dxout'});

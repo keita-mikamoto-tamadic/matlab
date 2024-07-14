@@ -4,7 +4,9 @@ close;
 % ==============================
 % 基本設定
 % ==============================
-iflinear = false;
+iflinear = true;
+control_sw = true;
+
 
 % syms t theta(t) phi(t) tau(t) g
 % % 振り子
@@ -15,23 +17,22 @@ iflinear = false;
 % パラメータ
 g = 9.81;
 
-Mp = 0.8;
-l = 0.6;
-Jp = (Mp * l^2)/3;
-u_1 = 0.05;
-u_3= 0.02;
+Mp = 0.263;
+l = 0.426;
+Jp = 7.669e-4;
+u_1 = 0;
+u_3= 0;
 
 
-Mw = 0.05;
-a = 0.1;
-Jw = (Mw * a^2)/2;
-u_2 = 0.05;
-u_4 = 0.02;
+Mw = 0.028;
+a = 0.058;
+Jw = 1.133e-5;
+u_2 = 0;
+u_4 = 0;
 
 
 % 運動方程式を立てる
 run('createEOM.m');
-
 
 % ==============================
 % シミュレーション
@@ -45,7 +46,7 @@ tf = 10;
 t = t0 : delT : tf;
 
 % 初期状態[theta, dtheta, phi, dphi]
-x0 = [0.03, 0, 0.03, 0];
+x0 = [0.3, 0, 0.03, 0];
 
 
 % データ長
@@ -63,7 +64,7 @@ F = nan(2, n_data);
 x_ref = 0;
 xki = nan(1, n_data+1);
 
-control_sw = true;
+
 
 kp = 15;
 ki = 0.3;
@@ -73,43 +74,20 @@ if control_sw == false
     ki = 0;
 end
 
-% 極配置
-lamda_param = [-30,-20,-7,0];
 
 % シミュレーション回す
 for i_data = 1 : n_data
-
-    % 制御入力
-    % 偏差の計算
-    xe = x_ref - X(1, i_data);
-    
-
-    if iflinear==false
-     % 積分
-        if i_data > 1
-            xki(i_data) = xki(i_data - 1) + xe;
-        else
-            xki(i_data) = xe;
-        end
-         % 入力トルク
-        tu = kp * xe + ki * xki(i_data);
-        xe = tu;
-    end
 
     % 外力
     if i_data < 1000
         d = 0;
     elseif i_data < 1200
-        d = 2;
+        d = -1;
     else
         d = 0;
-    end 
-
-    if control_sw == true
-        U(:,i_data) = [d,-xe];
-    else
-        U(:,i_data) = [d,0];
     end
+
+    U(:, i_data) = [0, 0];
     
 
     % X(1) = theta, X(2) = dtheta, X(3) = phi, X(4) = dphi
@@ -189,5 +167,5 @@ for i_data = 1:interval:n_data+1
     else
         imwrite(imind,cm,FileName,'gif','WriteMode','append','DelayTime',delT*interval);
     end
-    pause(delT*interval*0.05);
+    pause(delT*interval*0.01);
 end
