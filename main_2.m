@@ -58,7 +58,6 @@ X(:, 1) = x0;
 
 % 入力
 U = nan(2, n_data);
-torq_LQR = nan(4, n_data);
 
 % 制御用パラメータ
 x_ref = 0;
@@ -87,7 +86,10 @@ for i_data = 1 : n_data
         d = 0;
     end
 
-    U(:, i_data) = [-1, -F(1)*X(1,i_data)];
+    %U(:, i_data) = [0, 0];
+
+    % 姿勢のみをフィードバック
+    U(:, i_data) = [0, -F*X(:,i_data)];
     
     
 
@@ -95,7 +97,7 @@ for i_data = 1 : n_data
     % X(:, i_data+1) = f_rk4(@state_eq, X(:,i_data), -U(:,i_data), F(:, i_data), delT);
     X(:, i_data+1) = f_rk4(@state_eq, X(:,i_data), U(:,i_data), delT);
 
-    torq_LQR(:, i_data) = -F * X(:, i_data+1);
+    %torq_LQR(:, i_data) = -F * X(:, i_data+1);
 
 end
 

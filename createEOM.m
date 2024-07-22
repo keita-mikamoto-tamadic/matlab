@@ -122,8 +122,8 @@ end
 % 仮の状態ベクトルで置き換え
 x_temp = sym("x_temp", [n_state, 1]);
 for i = 1:statenum
-    eq(i) = subs(eq(i), x(2:2:end), x_temp(2:2:end))
-    eq(i) = subs(eq(i), x(1:2:end), x_temp(1:2:end))
+    eq(i) = subs(eq(i), x(2:2:end), x_temp(2:2:end));
+    eq(i) = subs(eq(i), x(1:2:end), x_temp(1:2:end));
 
 end
 
@@ -144,6 +144,7 @@ for i = 1:statenum
     dx(num+1, 1) = simplify(state_eq_right{i});
 end
 
+dx
 
 % ==============================
 % 線形化
@@ -165,12 +166,12 @@ jacobi_A = jacobian(dx,x_temp);
 jacobi_B = jacobian(dx,u);
 
 % 近似
-jacobi_A = subs(jacobi_A, x_temp, linear_point)
+jacobi_A = subs(jacobi_A, x_temp, linear_point);
 A_lqr = jacobi_A;
 
 jacobi_B = subs(jacobi_B, x_temp, linear_point);
-jacobi_B = subs(jacobi_B, tau, 0)
-jacobi_B_c = jacobi_B(:,2)
+jacobi_B = subs(jacobi_B, tau, 0);
+jacobi_B_c = jacobi_B(:,2);
 B_lqr = jacobi_B_c;
 
 % ==============================
@@ -180,15 +181,19 @@ B_lqr = jacobi_B_c;
 % 入出力評価関数を最小にする入力を求める。
 
 % 出力重みQ
-Q_lqr = diag([1,1,1,1]);
+Q_lqr = diag([10,100,1,50]);
 % 入力重みR
-R_lqr = 40;
+R_lqr = 30000;
 
 P = Ricatti_eq_lqr(A_lqr, B_lqr, Q_lqr, R_lqr);
 
-% 状態方程式
-dx_eq = (A_lqr - B_lqr * (inv(R_lqr) * B_lqr.' * P)) * x_temp
+%F フィードバックゲイン
 
+F = (inv(R_lqr) * B_lqr.' * P)
+
+% 状態方程式
+%dx_eq = (A_lqr - B_lqr * F) * x_temp;
+dx_eq = A_lqr * x_temp + B_lqr * u(2);
 % 出力方程式
 y = C * dx;
 
